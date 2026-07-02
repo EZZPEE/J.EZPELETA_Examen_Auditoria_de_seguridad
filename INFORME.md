@@ -17,7 +17,7 @@ Durante las fases de reconocimiento, enumeración y explotación, se detectó qu
 
 | ID | Vulnerabilidad / Hallazgo | Severidad | Evidencia (Flag) |
 | :--- | :--- | :--- | :--- |
-| **V-01** | Acceso no autenticado a base de datos Redis (Puerto 6379) | **CRÍTICA** | [`FLAG{redis_unauthenticated_access}`](TERMINAL.md#L401-L402) |
+| **V-01** | Acceso no autenticado a base de datos Redis (Puerto 6379) | **CRÍTICA** | [`FLAG{redis_unauthenticated_access}`](TERMINAL.md#L402) |
 | **V-02** | Divulgación completa de código fuente y repositorio Git expuesto (Puerto 8000) | **ALTA** | [`FLAG{git_source_disclosure}`](TERMINAL.md#L379) |
 | **V-03** | Exposición de panel de monitorización interno sin autenticación (Puerto 8080) | **MEDIA** | [`FLAG{exposed_monitoring_8080}`](TERMINAL.md#L197) |
 | **V-04** | Fuga de credenciales en backups y almacenamiento de configuraciones | **MEDIA** | [`FLAG{staging_sql_backup}`](TERMINAL.md#L511) |
@@ -49,7 +49,7 @@ Durante las fases de reconocimiento, enumeración y explotación, se detectó qu
     "FLAG{redis_unauthenticated_access}"
     ```
     
-    **[Evidencia completa en TERMINAL.md (línea 401-402)](TERMINAL.md#L401-L402)**
+    **[Evidencia completa en TERMINAL.md (línea 402)](TERMINAL.md#L402)**
     
     *Nota: También se identificaron claves de configuración críticas como `cfg:db_host` ("db.internal.megacorp.lab") y `cfg:db_user` ("billing_app").*
 
